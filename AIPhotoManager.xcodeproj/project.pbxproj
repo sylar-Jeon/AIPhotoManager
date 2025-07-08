@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2CEFE9C62E1D498C0089A309 /* libaiphoto in Frameworks */ = {isa = PBXBuildFile; productRef = 2CEFE9C52E1D498C0089A309 /* libaiphoto */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		2CEFE93E2E1CFB200089A309 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		2CEFE92D2E1CFB1F0089A309 /* AIPhotoManager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AIPhotoManager.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2CEFE93D2E1CFB200089A309 /* AIPhotoManagerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIPhotoManagerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2CEFE9472E1CFB200089A309 /* AIPhotoManagerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIPhotoManagerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2CEFE9A52E1D15CF0089A309 /* AppPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = AppPackage; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2CEFE9C62E1D498C0089A309 /* libaiphoto in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,9 +81,11 @@
 		2CEFE9242E1CFB1F0089A309 = {
 			isa = PBXGroup;
 			children = (
+				2CEFE9A52E1D15CF0089A309 /* AppPackage */,
 				2CEFE92F2E1CFB1F0089A309 /* AIPhotoManager */,
 				2CEFE9402E1CFB200089A309 /* AIPhotoManagerTests */,
 				2CEFE94A2E1CFB200089A309 /* AIPhotoManagerUITests */,
+				2CEFE9C42E1D498C0089A309 /* Frameworks */,
 				2CEFE92E2E1CFB1F0089A309 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +98,13 @@
 				2CEFE9472E1CFB200089A309 /* AIPhotoManagerUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		2CEFE9C42E1D498C0089A309 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -112,6 +127,7 @@
 			);
 			name = AIPhotoManager;
 			packageProductDependencies = (
+				2CEFE9C52E1D498C0089A309 /* libaiphoto */,
 			);
 			productName = AIPhotoManager;
 			productReference = 2CEFE92D2E1CFB1F0089A309 /* AIPhotoManager.app */;
@@ -558,6 +574,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2CEFE9C52E1D498C0089A309 /* libaiphoto */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = libaiphoto;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2CEFE9252E1CFB1F0089A309 /* Project object */;
 }
