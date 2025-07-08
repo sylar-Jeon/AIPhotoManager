@@ -1,16 +1,16 @@
 //
 
 import SwiftUI
+import Scenes
+import ComposableArchitecture
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        AlbumListView(
+            store: Store(initialState: AlbumListFeature.State()) {
+                AlbumListFeature()
+            }
+        )
     }
 }
 

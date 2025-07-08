@@ -5,8 +5,8 @@ import PackageDescription
 
 var package = Package(
     name: "AppPackage",
-    platforms: [.iOS("16.4")],
-    products: [        
+    platforms: [.iOS("17.6")],
+    products: [
         .library(name: "libaiphoto", targets: ["AIPhotoManagerApp"]),
     ],
     dependencies: [
@@ -23,7 +23,10 @@ var package = Package(
         ),
 
         .target(name: "Scenes",
-            dependencies: ["APFoundation"]
+            dependencies: [
+                "APFoundation",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+            ]
         ),
 
         .target(
