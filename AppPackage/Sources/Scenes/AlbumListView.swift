@@ -12,11 +12,17 @@ public struct AlbumListView: View {
                 } else {
                     List {
                         ForEach(store.albums) { album in
-                            VStack(alignment: .leading) {
-                                Text(album.title)
-                                Text("Tags: \(album.tags.joined(separator: ", "))")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                            NavigationLink(destination: AlbumDetailView(
+                                store: Store(initialState: AlbumDetailFeature.State(album: album)) {
+                                    AlbumDetailFeature()
+                                }
+                            )) {
+                                VStack(alignment: .leading) {
+                                    Text(album.title)
+                                    Text("Tags: \(album.tags.joined(separator: ", "))")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
                             }
                         }
                     }
