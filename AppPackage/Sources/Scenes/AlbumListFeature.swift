@@ -1,7 +1,8 @@
 
+import ComposableArchitecture
 import Foundation
 import APFoundation
-import ComposableArchitecture
+import Photos
 
 // For mock data
 public struct Album: Equatable, Identifiable, Hashable {
@@ -15,22 +16,29 @@ public struct Album: Equatable, Identifiable, Hashable {
 }
 
 @Reducer
-public struct AlbumListFeature {
+public struct AlbumListFeature : Sendable {
     @ObservableState
     public struct State: Equatable {
         public var albums: IdentifiedArrayOf<Album> = []
         public var isLoading = false
+        public var fetchedPhotosCount: Int = 0
         
-        public init(albums: IdentifiedArrayOf<Album> = [], isLoading: Bool = false) {
+        public init(albums: IdentifiedArrayOf<Album> = [], isLoading: Bool = false, fetchedPhotosCount: Int = 0) {
             self.albums = albums
             self.isLoading = isLoading
+            self.fetchedPhotosCount = fetchedPhotosCount
         }
     }
 
     public enum Action {
         case onAppear
         case albumsResponse([Album])
+        case scanButtonTapped
+        case authorizationResponse(PHAuthorizationStatus)
+        case photosResponse([PHAsset])
     }
+
+    @Dependency(\.photoClient) var photoClient
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
@@ -52,6 +60,35 @@ public struct AlbumListFeature {
             case let .albumsResponse(albums):
                 state.isLoading = false
                 state.albums = IdentifiedArray(uniqueElements: albums)
+                return .none
+                
+            case .scanButtonTapped:
+                return .run { send in
+                    let status = await self.photoClient.requestAuthorization()
+                    await send(.authorizationResponse(status))
+                }
+
+            case let .authorizationResponse(status):
+                switch status {
+                case .authorized, .limited:
+                    print("Photo library access granted.")
+                    return .run { send in
+                        let photos = await self.photoClient.fetchPhotos()
+                        await send(.photosResponse(photos))
+                    }
+                case .denied, .restricted:
+                    print("Photo library access denied.")
+                    return .none
+                case .notDetermined:
+                    print("Photo library access not determined.")
+                    return .none
+                @unknown default:
+                    fatalError()
+                }
+
+            case let .photosResponse(photos):
+                state.fetchedPhotosCount = photos.count
+                print("Fetched \(photos.count) photos.")
                 return .none
             }
         }

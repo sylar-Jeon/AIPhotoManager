@@ -1,4 +1,3 @@
-
 import ComposableArchitecture
 import SwiftUI
 
@@ -15,16 +14,26 @@ public struct AlbumListView: View {
                         ForEach(store.albums) { album in
                             Text(album.title)
                         }
+                        if store.fetchedPhotosCount > 0 {
+                            Text("Fetched \(store.fetchedPhotosCount) photos.")
+                        }
                     }
                 }
             }
             .navigationTitle("Albums")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Scan Photos") {
+                        store.send(.scanButtonTapped)
+                    }
+                }
+            }
             .onAppear {
                 store.send(.onAppear)
             }
         }
     }
-    
+
     public init(store: StoreOf<AlbumListFeature>) {
         self.store = store
     }
@@ -32,7 +41,7 @@ public struct AlbumListView: View {
 
 #Preview {
     AlbumListView(
-        store: Store(initialState: AlbumListFeature.State()) { 
+        store: Store(initialState: AlbumListFeature.State()) {
             AlbumListFeature()
         }
     )
