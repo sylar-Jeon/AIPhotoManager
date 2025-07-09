@@ -8,10 +8,12 @@ import Photos
 public struct Album: Equatable, Identifiable, Hashable {
     public let id: UUID
     public var title: String
+    public var tags: [String]
     
-    public init(id: UUID = UUID(), title: String) {
+    public init(id: UUID = UUID(), title: String, tags: [String] = []) {
         self.id = id
         self.title = title
+        self.tags = tags
     }
 }
 
@@ -36,9 +38,11 @@ public struct AlbumListFeature : Sendable {
         case scanButtonTapped
         case authorizationResponse(PHAuthorizationStatus)
         case photosResponse([PHAsset])
+        case classifiedAlbumsResponse([Album])
     }
 
     @Dependency(\.photoClient) var photoClient
+    @Dependency(\.aiPhotoClassifierClient) var aiPhotoClassifierClient
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
@@ -89,6 +93,15 @@ public struct AlbumListFeature : Sendable {
             case let .photosResponse(photos):
                 state.fetchedPhotosCount = photos.count
                 print("Fetched \(photos.count) photos.")
+                return .run { send in
+                    let classifiedAlbums = await self.aiPhotoClassifierClient.classifyPhotos(photos)
+                    await send(.classifiedAlbumsResponse(classifiedAlbums))
+                }
+
+            case let .classifiedAlbumsResponse(albums):
+                state.isLoading = false
+                state.albums = IdentifiedArray(uniqueElements: albums)
+                print("Classified into \(albums.count) albums.")
                 return .none
             }
         }

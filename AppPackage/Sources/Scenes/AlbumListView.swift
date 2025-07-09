@@ -12,10 +12,12 @@ public struct AlbumListView: View {
                 } else {
                     List {
                         ForEach(store.albums) { album in
-                            Text(album.title)
-                        }
-                        if store.fetchedPhotosCount > 0 {
-                            Text("Fetched \(store.fetchedPhotosCount) photos.")
+                            VStack(alignment: .leading) {
+                                Text(album.title)
+                                Text("Tags: \(album.tags.joined(separator: ", "))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
                         }
                     }
                 }
