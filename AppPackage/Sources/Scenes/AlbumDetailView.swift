@@ -11,80 +11,84 @@ public struct AlbumDetailView: View {
     private let thumbnailSize = CGSize(width: 150, height: 150)
 
     public var body: some View {
-        WithPerceptionTracking {
-            VStack {
-                Text(store.album.title)
-                    .font(.largeTitle)
-                    .padding()
+        VStack {
+            Text(store.album.title)
+                .font(.largeTitle)
+                .padding()
+            
+            if store.isLoadingPhotos {
+                ProgressView("Loading photos...")
+            } else if store.photos.isEmpty {
+                ContentUnavailableView("No Photos", systemImage: "photo")
+            } else {
+                photoGrid
+            }
+        }
+        .navigationTitle(store.album.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { detailToolbar }
+        .onAppear {
+            store.send(.onAppear)
+        }
+        .sheet(item: $store.scope(state: \.destination, action: \.destination)) { store in
+            AlbumSelectionView(store: store)
+        }
+        .fullScreenCover(item: $store.scope(state: \.photoViewer, action: \.photoViewer)) { store in
+            PhotoViewerView(store: store)
+        }
+        .alert("Rename Album", isPresented: $isRenameAlertPresented) {
+            TextField("New Album Name", text: $renameText)
+            Button("Rename") {
+                store.send(.renameAlbum(newName: renameText))
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Enter a new name for the album.")
+        }
+    }
 
-                if store.isLoadingPhotos {
-                    ProgressView("Loading photos...")
-                } else if store.photos.isEmpty {
-                    ContentUnavailableView("No Photos", systemImage: "photo")
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
-                            ForEach(store.photos) { photo in
-                                PhotoThumbnailView(asset: photo.asset, imageManager: imageManager, thumbnailSize: thumbnailSize)
-                                    .onTapGesture {
-                                        store.send(.photoTapped(photo))
-                                    }
-                                    .overlay(alignment: .topTrailing) {
-                                        if store.isEditing {
-                                            Image(systemName: store.selection.contains(photo.id) ? "checkmark.circle.fill" : "circle")
-                                                .foregroundColor(.blue)
-                                                .padding(5)
-                                        }
-                                    }
+    @State private var isRenameAlertPresented = false
+    @State private var renameText = ""
+
+    private var photoGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
+                ForEach(store.photos) { photo in
+                    PhotoThumbnailView(asset: photo.asset, imageManager: imageManager, thumbnailSize: thumbnailSize)
+                        .onTapGesture {
+                            store.send(.photoTapped(photo))
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            if store.isEditing {
+                                Image(systemName: store.selection.contains(photo.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(.blue)
+                                    .padding(5)
                             }
                         }
-                        .padding()
-                    }
                 }
             }
-            .navigationTitle(store.album.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(store.isEditing ? "Done" : "Select") {
-                        store.send(.setEditMode(isEditing: !store.isEditing))
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Rename") {
-                        store.send(.renameButtonTapped)
-                    }
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    if store.isEditing {
-                        Button("Move Selected (\(store.selection.count))") {
-                            store.send(.moveButtonTapped)
-                        }
-                        .disabled(store.selection.isEmpty)
-                    }
-                }
+            .padding()
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var detailToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(store.isEditing ? "Done" : "Select") {
+                store.send(.setEditMode(isEditing: !store.isEditing))
             }
-            .alert($store.alert) {
-                TextState("Rename Album")
-            } actions: {
-                TextField("New Album Name", text: store.album.title.toBinding(send: { store.send(.renameAlbum(newName: $0)) }))
-                Button("Rename") {
-                    // Action is handled by the TextField binding
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button("Rename") {
+                store.send(.renameButtonTapped)
+            }
+        }
+        ToolbarItem(placement: .bottomBar) {
+            if store.isEditing {
+                Button("Move Selected (\(store.selection.count))") {
+                    store.send(.moveButtonTapped)
                 }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                TextState("Enter a new name for the album.")
-            }
-            .onAppear {
-                store.send(.onAppear)
-            }
-            .sheet(item: $store.scope(state: \.destinationSelection, action: \.destinationSelection)) {
-                store in
-                AlbumSelectionView(store: store)
-            }
-            .fullScreenCover(item: $store.scope(state: \.photoViewer, action: \.photoViewer)) {
-                store in
-                PhotoViewerView(store: store)
+                .disabled(store.selection.isEmpty)
             }
         }
     }

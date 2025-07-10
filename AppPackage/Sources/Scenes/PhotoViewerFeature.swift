@@ -19,12 +19,16 @@ public struct PhotoViewerFeature {
 
     public enum Action {
         case dismiss
+        case setSelectedPhotoID(Photo.ID)
     }
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
             switch action {
             case .dismiss:
+                return .none
+            case let .setSelectedPhotoID(photoID):
+                state.selectedPhotoID = photoID
                 return .none
             }
         }

@@ -10,7 +10,7 @@ public struct PhotoViewerView: View {
 private let imageManager = PHCachingImageManager()
 
     public var body: some View {
-        TabView(selection: $store.selectedPhotoID) {
+        TabView(selection: $store.selectedPhotoID.sending(\.setSelectedPhotoID)) {
             ForEach(store.photos) { photo in
                 FullPhotoView(asset: photo.asset, imageManager: imageManager)
                     .tag(photo.id)

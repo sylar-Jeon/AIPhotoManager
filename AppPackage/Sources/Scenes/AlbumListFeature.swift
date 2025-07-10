@@ -10,6 +10,7 @@ public struct AlbumListFeature : Sendable {
     @ObservableState
     public struct State: Equatable {
         public var albums: IdentifiedArrayOf<Album> = []
+        public var path = StackState<AlbumDetailFeature.State>()
         public var isLoading = false
         public var fetchedPhotosCount: Int = 0
         public var selection: Set<Album.ID> = []
@@ -31,7 +32,7 @@ public struct AlbumListFeature : Sendable {
         case authorizationResponse(PHAuthorizationStatus)
         case photosResponse([PHAsset])
         case classifiedAlbumsResponse([Album])
-        case album(id: Album.ID, action: AlbumDetailFeature.Action)
+        case path(StackAction<AlbumDetailFeature.State, AlbumDetailFeature.Action>)
         case setEditMode(isEditing: Bool)
         case albumTapped(Album)
         case mergeButtonTapped
@@ -100,13 +101,7 @@ public struct AlbumListFeature : Sendable {
                 print("Classified into \(albums.count) albums.")
                 return .none
 
-            case .album(id: _, action: .renameAlbum(let newName)):
-                // Handle album rename propagation
-                // The album in state.albums is already updated by the AlbumDetailFeature's reducer
-                print("Album renamed to: \(newName)")
-                return .none
-
-            case .album: // Other actions from AlbumDetailFeature
+            case .path:
                 return .none
 
             case let .setEditMode(isEditing):
@@ -121,25 +116,28 @@ public struct AlbumListFeature : Sendable {
                     } else {
                         state.selection.insert(album.id)
                     }
+                } else {
+                    state.path.append(AlbumDetailFeature.State(album: album))
                 }
                 return .none
 
             case .mergeButtonTapped:
                 // Simulate merging albums
                 guard state.selection.count > 1 else { return .none }
-                let selectedAlbums = state.albums.filter { state.selection.contains($0.id) }
+                let selection = state.selection
+                let selectedAlbums = state.albums.filter { selection.contains($0.id) }
                 let newTitle = selectedAlbums.map { $0.title }.joined(separator: " + ")
                 let newTags = Array(Set(selectedAlbums.flatMap { $0.tags }))
                 let mergedAlbum = Album(title: newTitle, tags: newTags)
 
-                state.albums.removeAll(where: { state.selection.contains($0.id) })
+                state.albums.removeAll(where: { selection.contains($0.id) })
                 state.albums.append(mergedAlbum)
                 state.selection = []
                 state.isEditingAlbums = false
                 return .none
             }
         }
-        .forEach(\.$albums, action: \.album) {
+        .forEach(\.path, action: \.path) {
             AlbumDetailFeature()
         }
     }

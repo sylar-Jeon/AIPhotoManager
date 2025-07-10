@@ -5,21 +5,14 @@ public struct AlbumListView: View {
     @Bindable var store: StoreOf<AlbumListFeature>
 
     public var body: some View {
-        NavigationView {
+        NavigationStackStore(self.store.scope(state: \.path, action: \.path)) {
             Group {
                 if store.isLoading {
                     ProgressView()
                 } else {
                     List {
                         ForEach(store.albums) { album in
-                            NavigationLink(destination:
-                                AlbumDetailView(
-                                    store: store.scope(
-                                        state: \.albums[id: album.id]!,
-                                        action: \.album(id: album.id, action: .self)
-                                    )
-                                )
-                            ) {
+                            NavigationLink(state: AlbumDetailFeature.State(album: album)) {
                                 VStack(alignment: .leading) {
                                     Text(album.title)
                                     Text("Tags: \(album.tags.joined(separator: ", "))")
@@ -67,6 +60,8 @@ public struct AlbumListView: View {
             .onAppear {
                 store.send(.onAppear)
             }
+        } destination: { store in
+            AlbumDetailView(store: store)
         }
     }
 
