@@ -10,8 +10,8 @@ var package = Package(
         .library(name: "libaiphoto", targets: ["AIPhotoManagerApp"]),
     ],
     dependencies: [
-        //.package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
-        //.package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "1.1.0"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.0.0"),
+        .package(url: "https://github.com/pointfreeco/swift-identified-collections", from: "1.1.0"),
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.3.5"),
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from:"1.15.2"),
     ],
@@ -19,6 +19,8 @@ var package = Package(
         .target(name: "APFoundation",
             dependencies: [
                 .product(name: "Dependencies", package: "swift-dependencies"),
+                .product(name: "Collections", package: "swift-collections"),
+                .product(name: "IdentifiedCollections", package: "swift-identified-collections"),
             ]
         ),
 

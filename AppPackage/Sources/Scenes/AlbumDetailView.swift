@@ -26,6 +26,16 @@ public struct AlbumDetailView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
                             ForEach(store.photos) { photo in
                                 PhotoThumbnailView(asset: photo.asset, imageManager: imageManager, thumbnailSize: thumbnailSize)
+                                    .onTapGesture {
+                                        store.send(.photoTapped(photo))
+                                    }
+                                    .overlay(alignment: .topTrailing) {
+                                        if store.isEditing {
+                                            Image(systemName: store.selection.contains(photo.id) ? "checkmark.circle.fill" : "circle")
+                                                .foregroundColor(.blue)
+                                                .padding(5)
+                                        }
+                                    }
                             }
                         }
                         .padding()
@@ -34,8 +44,47 @@ public struct AlbumDetailView: View {
             }
             .navigationTitle(store.album.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(store.isEditing ? "Done" : "Select") {
+                        store.send(.setEditMode(isEditing: !store.isEditing))
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Rename") {
+                        store.send(.renameButtonTapped)
+                    }
+                }
+                ToolbarItem(placement: .bottomBar) {
+                    if store.isEditing {
+                        Button("Move Selected (\(store.selection.count))") {
+                            store.send(.moveButtonTapped)
+                        }
+                        .disabled(store.selection.isEmpty)
+                    }
+                }
+            }
+            .alert($store.alert) {
+                TextState("Rename Album")
+            } actions: {
+                TextField("New Album Name", text: store.album.title.toBinding(send: { store.send(.renameAlbum(newName: $0)) }))
+                Button("Rename") {
+                    // Action is handled by the TextField binding
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                TextState("Enter a new name for the album.")
+            }
             .onAppear {
                 store.send(.onAppear)
+            }
+            .sheet(item: $store.scope(state: \.destinationSelection, action: \.destinationSelection)) {
+                store in
+                AlbumSelectionView(store: store)
+            }
+            .fullScreenCover(item: $store.scope(state: \.photoViewer, action: \.photoViewer)) {
+                store in
+                PhotoViewerView(store: store)
             }
         }
     }
