@@ -13,8 +13,8 @@ struct AlbumRowView: View {
         VStack(alignment: .leading) {
             Text(album.title)
             Text("Tags: \(album.tags.joined(separator: ", "))")
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(AppFont.caption)
+                .foregroundColor(AppColor.textSecondary)
         }
         .simultaneousGesture(TapGesture().onEnded {
             onTapped()
@@ -22,8 +22,8 @@ struct AlbumRowView: View {
         .overlay(alignment: .topTrailing) {
             if isEditing {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(.blue)
-                    .padding(5)
+                    .foregroundColor(AppColor.primary)
+                    .padding(AppSpacing.small)
             }
         }
     }
