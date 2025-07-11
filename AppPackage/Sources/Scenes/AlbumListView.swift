@@ -13,24 +13,14 @@ public struct AlbumListView: View {
                     List {
                         ForEach(store.albums) { album in
                             NavigationLink(state: AlbumDetailFeature.State(album: album)) {
-                                VStack(alignment: .leading) {
-                                    Text(album.title)
-                                    Text("Tags: \(album.tags.joined(separator: ", "))")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            .simultaneousGesture(TapGesture().onEnded { // Handle selection in edit mode
-                                if store.isEditingAlbums {
-                                    store.send(.albumTapped(album))
-                                }
-                            })
-                            .overlay(alignment: .topTrailing) {
-                                if store.isEditingAlbums {
-                                    Image(systemName: store.selection.contains(album.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(.blue)
-                                        .padding(5)
-                                }
+                                AlbumRowView(
+                                    album: album,
+                                    isEditing: store.isEditingAlbums,
+                                    isSelected: store.selection.contains(album.id),
+                                    onTapped: {
+                                        store.send(.albumTapped(album))
+                                    }
+                                )
                             }
                         }
                     }
