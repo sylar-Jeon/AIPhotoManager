@@ -1,6 +1,7 @@
 
 import Dependencies
 import Photos
+import UIKit // UIImage를 사용하기 위해 추가
 
 public struct AIPhotoClassifierClient: Sendable {
     public var classifyPhotos: @Sendable ([PHAsset]) async -> [Album]
@@ -9,29 +10,41 @@ public struct AIPhotoClassifierClient: Sendable {
 extension AIPhotoClassifierClient: DependencyKey {
     public static let liveValue = Self(
         classifyPhotos: { assets in
-            // Simulate AI classification and tagging
-            try? await Task.sleep(for: .seconds(2))
-            
+            let imageClassificationService = ImageClassificationService()
             var classifiedAlbums: [Album] = []
-            
-            // Simple simulation: group by a random tag for demonstration
-            let possibleTags = ["Nature", "People", "Animals", "Food", "Travel", "Urban"]
-            
+            let imageManager = PHCachingImageManager()
+            let requestOptions = PHImageRequestOptions()
+            requestOptions.isSynchronous = true // 동기적으로 이미지 요청
+            requestOptions.deliveryMode = .highQualityFormat // 고품질 이미지 요청
+
             for asset in assets {
-                let randomTag = possibleTags.randomElement() ?? "Untagged"
-                // For simplicity, each asset becomes an album with one tag
-                // In a real app, multiple assets would form an album based on common tags
-                let album = Album(title: "\(randomTag) Photos", tags: [randomTag])
-                classifiedAlbums.append(album)
+                await withCheckedContinuation { continuation in
+                    imageManager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: requestOptions) { image, _ in
+                        guard let uiImage = image else {
+                            continuation.resume(returning: ())
+                            return
+                        }
+
+                        imageClassificationService.classifyImage(uiImage) { result in
+                            switch result {
+                            case .success(let identifier):
+                                let album = Album(title: identifier, tags: [identifier])
+                                classifiedAlbums.append(album)
+                            case .failure(let error):
+                                print("Image classification failed: \(error.localizedDescription)")
+                            }
+                            continuation.resume(returning: ())
+                        }
+                    }
+                }
             }
-            
-            // Further refine: group similar albums or merge
+
+            // 분류된 앨범들을 병합하거나 그룹화하는 로직 (필요시 추가 구현)
             var finalAlbums: [Album] = []
             var albumMap: [String: Album] = [:]
-            
+
             for album in classifiedAlbums {
                 if var existingAlbum = albumMap[album.title] {
-                    // Merge logic (simplified)
                     existingAlbum.tags.append(contentsOf: album.tags)
                     albumMap[album.title] = existingAlbum
                 } else {
@@ -39,7 +52,7 @@ extension AIPhotoClassifierClient: DependencyKey {
                 }
             }
             finalAlbums = Array(albumMap.values)
-            
+
             return finalAlbums
         }
     )
