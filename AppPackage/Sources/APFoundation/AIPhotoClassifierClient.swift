@@ -28,8 +28,9 @@ extension AIPhotoClassifierClient: DependencyKey {
                         imageClassificationService.classifyImage(uiImage) { result in
                             switch result {
                             case .success(let identifier):
-                                let album = Album(title: identifier, tags: [identifier])
-                                classifiedAlbums.append(album)
+                let category = mapIdentifierToCategory(identifier)
+                let album = Album(title: category, tags: [category])
+                classifiedAlbums.append(album)
                             case .failure(let error):
                                 print("Image classification failed: \(error.localizedDescription)")
                             }
@@ -56,6 +57,24 @@ extension AIPhotoClassifierClient: DependencyKey {
             return finalAlbums
         }
     )
+
+    private static func mapIdentifierToCategory(_ identifier: String) -> String {
+        let lowercasedIdentifier = identifier.lowercased()
+        
+        if lowercasedIdentifier.contains("person") || lowercasedIdentifier.contains("face") || lowercasedIdentifier.contains("human") {
+            return "인물"
+        } else if lowercasedIdentifier.contains("dog") || lowercasedIdentifier.contains("cat") || lowercasedIdentifier.contains("animal") || lowercasedIdentifier.contains("bird") || lowercasedIdentifier.contains("fish") {
+            return "동물"
+        } else if lowercasedIdentifier.contains("food") || lowercasedIdentifier.contains("dish") || lowercasedIdentifier.contains("meal") || lowercasedIdentifier.contains("fruit") || lowercasedIdentifier.contains("vegetable") {
+            return "음식"
+        } else if lowercasedIdentifier.contains("landscape") || lowercasedIdentifier.contains("nature") || lowercasedIdentifier.contains("mountain") || lowercasedIdentifier.contains("sea") || lowercasedIdentifier.contains("sky") || lowercasedIdentifier.contains("tree") {
+            return "풍경"
+        } else if lowercasedIdentifier.contains("car") || lowercasedIdentifier.contains("building") || lowercasedIdentifier.contains("object") || lowercasedIdentifier.contains("house") || lowercasedIdentifier.contains("furniture") {
+            return "사물"
+        } else {
+            return "기타"
+        }
+    }
 
     public static let testValue = Self(
         classifyPhotos: { _ in [] }
