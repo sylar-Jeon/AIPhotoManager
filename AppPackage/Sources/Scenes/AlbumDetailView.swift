@@ -36,7 +36,7 @@ public struct AlbumDetailView: View {
         .fullScreenCover(item: $store.scope(state: \.photoViewer, action: \.photoViewer)) { store in
             PhotoViewerView(store: store)
         }
-        .alert("Rename Album", isPresented: $isRenameAlertPresented) {
+        .alert("Rename Album", isPresented: $store.isRenameAlertPresented.sending(\.setIsRenameAlertPresented)) {
             TextField("New Album Name", text: $renameText)
             Button("Rename") {
                 store.send(.renameAlbum(newName: renameText))
@@ -47,7 +47,6 @@ public struct AlbumDetailView: View {
         }
     }
 
-    @State private var isRenameAlertPresented = false
     @State private var renameText = ""
 
     private var photoGrid: some View {

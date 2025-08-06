@@ -24,6 +24,7 @@ public struct AlbumListView: View {
                             }
                         }
                     }
+                    .animation(.default, value: store.albums)
                 }
             }
             .navigationTitle("Albums")
@@ -38,15 +39,23 @@ public struct AlbumListView: View {
                         store.send(.setEditMode(isEditing: !store.isEditingAlbums))
                     }
                 }
-                ToolbarItem(placement: .bottomBar) {
+                ToolbarItemGroup(placement: .bottomBar) {
                     if store.isEditingAlbums {
                         Button("Merge Selected (\(store.selection.count))") {
                             store.send(.mergeButtonTapped)
                         }
                         .disabled(store.selection.count < 2)
+                        
+                        Spacer()
+                        
+                        Button("Delete Selected (\(store.selection.count))", role: .destructive) {
+                            store.send(.deleteButtonTapped)
+                        }
+                        .disabled(store.selection.isEmpty)
                     }
                 }
             }
+            .animation(.default, value: store.isEditingAlbums)
             .onAppear {
                 store.send(.onAppear)
             }

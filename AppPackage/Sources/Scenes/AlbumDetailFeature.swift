@@ -13,15 +13,17 @@ public struct AlbumDetailFeature : Sendable {
         public var isLoadingPhotos = false
         public var selection: Set<Photo.ID> = []
         public var isEditing = false
+        public var isRenameAlertPresented = false
         @Presents var destination: AlbumSelectionFeature.State?
         @Presents var photoViewer: PhotoViewerFeature.State?
         
-        public init(album: Album, photos: IdentifiedArrayOf<Photo> = [], isLoadingPhotos: Bool = false, selection: Set<Photo.ID> = [], isEditing: Bool = false, destination: AlbumSelectionFeature.State? = nil, photoViewer: PhotoViewerFeature.State? = nil) {
+        public init(album: Album, photos: IdentifiedArrayOf<Photo> = [], isLoadingPhotos: Bool = false, selection: Set<Photo.ID> = [], isEditing: Bool = false, isRenameAlertPresented: Bool = false, destination: AlbumSelectionFeature.State? = nil, photoViewer: PhotoViewerFeature.State? = nil) {
             self.album = album
-            self.photos = photos
+            self.photos = IdentifiedArray(uniqueElements: album.photos)
             self.isLoadingPhotos = isLoadingPhotos
             self.selection = selection
             self.isEditing = isEditing
+            self.isRenameAlertPresented = isRenameAlertPresented
             self.destination = destination
             self.photoViewer = photoViewer
         }
@@ -29,7 +31,6 @@ public struct AlbumDetailFeature : Sendable {
 
     public enum Action {
         case onAppear
-        case photosLoaded([PHAsset])
         case renameButtonTapped
         case renameAlbum(newName: String)
         case setEditMode(isEditing: Bool)
@@ -38,6 +39,13 @@ public struct AlbumDetailFeature : Sendable {
         case movePhotos(toAlbum: Album)
         case destination(PresentationAction<AlbumSelectionFeature.Action>)
         case photoViewer(PresentationAction<PhotoViewerFeature.Action>)
+        case delegate(Delegate)
+        case setIsRenameAlertPresented(Bool)
+
+        public enum Delegate {
+            case albumUpdated(Album)
+            case movePhotos(from: Album, to: Album, photos: [Photo])
+        }
     }
 
     @Dependency(\.photoClient) var photoClient
@@ -46,78 +54,59 @@ public struct AlbumDetailFeature : Sendable {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                guard !state.isLoadingPhotos else { return .none }
-                state.isLoadingPhotos = true
-                // In a real app, you'd filter photos based on album's classification/tags
-                // For now, we'll just fetch all photos and simulate filtering later.
-                return .run { send in
-                    let allPhotos = await self.photoClient.fetchPhotos()
-                    await send(.photosLoaded(allPhotos))
-                }
-                
-            case let .photosLoaded(assets):
-                state.isLoadingPhotos = false
-                // Simulate filtering photos for this specific album based on tags
-                // This is a placeholder for actual AI-based photo-to-album mapping
-                let filteredAssets = assets.filter { asset in
-                    // Simple simulation: if album title contains a tag, include some photos
-                    state.album.tags.contains { tag in
-                        state.album.title.contains(tag)
-                    }
-                }
-                state.photos = IdentifiedArray(uniqueElements: filteredAssets.map(Photo.init))
+                state.photos = IdentifiedArray(uniqueElements: state.album.photos)
                 return .none
                 
             case .renameButtonTapped:
+                state.isRenameAlertPresented = true
                 return .none
                 
             case let .renameAlbum(newName):
                 state.album.title = newName
-                return .none
+                state.isRenameAlertPresented = false
+                return .send(.delegate(.albumUpdated(state.album)))
                 
             case let .setEditMode(isEditing):
                 state.isEditing = isEditing
-                state.selection = [] // Clear selection when entering/exiting edit mode
+                state.selection = []
                 return .none
                 
             case let .photoTapped(photo):
                 if state.isEditing {
-                    state.selection.insert(photo.id)
+                    if state.selection.contains(photo.id) {
+                        state.selection.remove(photo.id)
+                    } else {
+                        state.selection.insert(photo.id)
+                    }
                 } else {
                     state.photoViewer = PhotoViewerFeature.State(photos: state.photos, selectedPhotoID: photo.id)
                 }
                 return .none
                 
             case .moveButtonTapped:
-                // Present a sheet to select destination album
-                state.destination = AlbumSelectionFeature.State(albums: []) // Need to pass actual albums here
+                // In a real app, you would fetch all albums here.
+                // For now, we assume the parent feature will handle this.
+                state.destination = AlbumSelectionFeature.State(albums: [])
                 return .none
                 
             case let .movePhotos(toAlbum):
-                // Simulate moving photos by removing them from current album
-                let selection = state.selection
-                state.photos.removeAll(where: { selection.contains($0.id) })
-                state.selection = []
-                state.isEditing = false
-                state.destination = nil
-                // In a real app, you'd update the target album's photos as well
-                return .none
+                let photosToMove = state.photos.filter { state.selection.contains($0.id) }
+                return .send(.delegate(.movePhotos(from: state.album, to: toAlbum, photos: Array(photosToMove))))
                 
             case .destination(.presented(.albumTapped(let album))):
                 return .send(.movePhotos(toAlbum: album))
                 
-            case .destination(.presented(.cancelButtonTapped)):
-                state.destination = nil
+            case .destination:
                 return .none
                 
-            case .destination: // Dismissal or other actions from AlbumSelectionFeature
+            case .photoViewer:
                 return .none
-                
-            case .photoViewer(.presented(.dismiss)):
-                state.photoViewer = nil
+
+            case .delegate:
                 return .none
-                
-            case .photoViewer: // Other actions from PhotoViewerFeature
+
+            case let .setIsRenameAlertPresented(isPresented):
+                state.isRenameAlertPresented = isPresented
                 return .none
             }
         }

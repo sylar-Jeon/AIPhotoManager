@@ -36,6 +36,7 @@ public struct AlbumListFeature : Sendable {
         case setEditMode(isEditing: Bool)
         case albumTapped(Album)
         case mergeButtonTapped
+        case deleteButtonTapped
     }
 
     @Dependency(\.photoClient) var photoClient
@@ -51,9 +52,9 @@ public struct AlbumListFeature : Sendable {
                     // Simulate a network/database call
                     try await Task.sleep(for: .seconds(1.5))
                     let mockAlbums = [
-                        Album(title: "Summer Vacation 2024"),
-                        Album(title: "Family Photos"),
-                        Album(title: "Cute Pets")
+                        Album(title: "Summer Vacation 2024", photos: []),
+                        Album(title: "Family Photos", photos: []),
+                        Album(title: "Cute Pets", photos: [])
                     ]
                     await send(.albumsResponse(mockAlbums))
                 }
@@ -64,6 +65,7 @@ public struct AlbumListFeature : Sendable {
                 return .none
                 
             case .scanButtonTapped:
+                state.isLoading = true
                 return .run { send in
                     let status = await self.photoClient.requestAuthorization()
                     await send(.authorizationResponse(status))
@@ -79,12 +81,15 @@ public struct AlbumListFeature : Sendable {
                     }
                 case .denied, .restricted:
                     print("Photo library access denied.")
+                    state.isLoading = false
                     return .none
                 case .notDetermined:
                     print("Photo library access not determined.")
+                    state.isLoading = false
                     return .none
                 @unknown default:
-                    fatalError()
+                    state.isLoading = false
+                    return .none
                 }
 
             case let .photosResponse(photos):
@@ -100,6 +105,20 @@ public struct AlbumListFeature : Sendable {
                 state.albums = IdentifiedArray(uniqueElements: albums)
                 print("Classified into \(albums.count) albums.")
                 return .none
+
+            case .path(.element(id: _, action: .delegate(let delegateAction))):
+                switch delegateAction {
+                case let .albumUpdated(album):
+                    state.albums[id: album.id] = album
+                    return .none
+                case let .movePhotos(from, to, photos):
+                    guard var sourceAlbum = state.albums[id: from.id], var destinationAlbum = state.albums[id: to.id] else { return .none }
+                    sourceAlbum.photos.removeAll { photos.contains($0) }
+                    destinationAlbum.photos.append(contentsOf: photos)
+                    state.albums[id: sourceAlbum.id] = sourceAlbum
+                    state.albums[id: destinationAlbum.id] = destinationAlbum
+                    return .none
+                }
 
             case .path:
                 return .none
@@ -122,16 +141,24 @@ public struct AlbumListFeature : Sendable {
                 return .none
 
             case .mergeButtonTapped:
-                // Simulate merging albums
                 guard state.selection.count > 1 else { return .none }
                 let selection = state.selection
                 let selectedAlbums = state.albums.filter { selection.contains($0.id) }
                 let newTitle = selectedAlbums.map { $0.title }.joined(separator: " + ")
                 let newTags = Array(Set(selectedAlbums.flatMap { $0.tags }))
-                let mergedAlbum = Album(title: newTitle, tags: newTags)
+                let mergedPhotos = selectedAlbums.flatMap { $0.photos }
+                let mergedAlbum = Album(title: newTitle, tags: newTags, photos: mergedPhotos)
 
                 state.albums.removeAll(where: { selection.contains($0.id) })
                 state.albums.append(mergedAlbum)
+                state.selection = []
+                state.isEditingAlbums = false
+                return .none
+                
+            case .deleteButtonTapped:
+                for id in state.selection {
+                    state.albums.remove(id: id)
+                }
                 state.selection = []
                 state.isEditingAlbums = false
                 return .none

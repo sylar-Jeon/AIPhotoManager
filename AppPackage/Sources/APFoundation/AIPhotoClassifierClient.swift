@@ -1,7 +1,7 @@
 
 import Dependencies
 import Photos
-import UIKit // UIImage를 사용하기 위해 추가
+import UIKit
 
 public struct AIPhotoClassifierClient: Sendable {
     public var classifyPhotos: @Sendable ([PHAsset]) async -> [Album]
@@ -10,55 +10,68 @@ public struct AIPhotoClassifierClient: Sendable {
 extension AIPhotoClassifierClient: DependencyKey {
     public static let liveValue = Self(
         classifyPhotos: { assets in
-            let imageClassificationService = ImageClassificationService()
-            var classifiedAlbums: [Album] = []
-            let imageManager = PHCachingImageManager()
-            let requestOptions = PHImageRequestOptions()
-            requestOptions.isSynchronous = true // 동기적으로 이미지 요청
-            requestOptions.deliveryMode = .highQualityFormat // 고품질 이미지 요청
+            let classifier = ImageClassifier()
+            var classifiedPhotos: [String: [Photo]] = [:]
 
-            for asset in assets {
-                await withCheckedContinuation { continuation in
-                    imageManager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: requestOptions) { image, _ in
-                        guard let uiImage = image else {
-                            continuation.resume(returning: ())
-                            return
-                        }
+            await withTaskGroup(of: (Photo, String)?.self) { group in
+                for asset in assets {
+                    group.addTask {
+                        await classifier.classify(asset: asset)
+                    }
+                }
 
-                        imageClassificationService.classifyImage(uiImage) { result in
-                            switch result {
-                            case .success(let identifier):
-                let category = mapIdentifierToCategory(identifier)
-                let album = Album(title: category, tags: [category])
-                classifiedAlbums.append(album)
-                            case .failure(let error):
-                                print("Image classification failed: \(error.localizedDescription)")
-                            }
-                            continuation.resume(returning: ())
-                        }
+                for await result in group {
+                    if let (photo, category) = result {
+                        classifiedPhotos[category, default: []].append(photo)
                     }
                 }
             }
 
-            // 분류된 앨범들을 병합하거나 그룹화하는 로직 (필요시 추가 구현)
-            var finalAlbums: [Album] = []
-            var albumMap: [String: Album] = [:]
-
-            for album in classifiedAlbums {
-                if var existingAlbum = albumMap[album.title] {
-                    existingAlbum.tags.append(contentsOf: album.tags)
-                    albumMap[album.title] = existingAlbum
-                } else {
-                    albumMap[album.title] = album
-                }
+            return classifiedPhotos.map { category, photos in
+                Album(title: category, tags: [category], photos: photos)
             }
-            finalAlbums = Array(albumMap.values)
-
-            return finalAlbums
         }
     )
 
-    private static func mapIdentifierToCategory(_ identifier: String) -> String {
+    public static let testValue = Self(
+        classifyPhotos: { _ in [] }
+    )
+}
+
+private actor ImageClassifier {
+    private let imageManager = PHCachingImageManager()
+    private let requestOptions: PHImageRequestOptions
+    private let imageClassificationService = ImageClassificationService()
+
+    init() {
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        self.requestOptions = options
+    }
+
+    func classify(asset: PHAsset) async -> (Photo, String)? {
+        await withCheckedContinuation { continuation in
+            imageManager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: requestOptions) { image, _ in
+                guard let uiImage = image else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                self.imageClassificationService.classifyImage(uiImage) { result in
+                    switch result {
+                    case .success(let identifier):
+                        let category = self.mapIdentifierToCategory(identifier)
+                        continuation.resume(returning: (Photo(asset: asset), category))
+                    case .failure(let error):
+                        print("Image classification failed: \(error.localizedDescription)")
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+    }
+
+    private func mapIdentifierToCategory(_ identifier: String) -> String {
         let lowercasedIdentifier = identifier.lowercased()
         
         if lowercasedIdentifier.contains("person") || lowercasedIdentifier.contains("face") || lowercasedIdentifier.contains("human") {
@@ -75,11 +88,8 @@ extension AIPhotoClassifierClient: DependencyKey {
             return "기타"
         }
     }
-
-    public static let testValue = Self(
-        classifyPhotos: { _ in [] }
-    )
 }
+
 
 public extension DependencyValues {
     var aiPhotoClassifierClient: AIPhotoClassifierClient {
