@@ -40,32 +40,38 @@ extension AIPhotoClassifierClient: DependencyKey {
 
 private actor ImageClassifier {
     private let imageManager = PHCachingImageManager()
-    private let requestOptions: PHImageRequestOptions
     private let imageClassificationService = ImageClassificationService()
 
-    init() {
+    func classify(asset: PHAsset) async -> (Photo, String)? {
         let options = PHImageRequestOptions()
         options.deliveryMode = .highQualityFormat
-        self.requestOptions = options
-    }
+        options.resizeMode = .fast
+        options.isNetworkAccessAllowed = false
 
-    func classify(asset: PHAsset) async -> (Photo, String)? {
-        await withCheckedContinuation { continuation in
-            imageManager.requestImage(for: asset, targetSize: PHImageManagerMaximumSize, contentMode: .aspectFit, options: requestOptions) { image, _ in
-                guard let uiImage = image else {
-                    continuation.resume(returning: nil)
+        let (imageData, _) = await withCheckedContinuation { (continuation: CheckedContinuation<(Data, String), Never>) in
+            imageManager.requestImageDataAndOrientation(for: asset, options: options) { data, uti, _, _ in
+                guard let data = data, let uti = uti else {
+                    // This can be called multiple times, so we can't resume with nil here.
+                    // We will just return and let the timeout handle it if no image is ever returned.
                     return
                 }
+                continuation.resume(returning: (data, uti))
+            }
+        }
 
-                self.imageClassificationService.classifyImage(uiImage) { result in
-                    switch result {
-                    case .success(let identifier):
-                        let category = self.mapIdentifierToCategory(identifier)
-                        continuation.resume(returning: (Photo(asset: asset), category))
-                    case .failure(let error):
-                        print("Image classification failed: \(error.localizedDescription)")
-                        continuation.resume(returning: nil)
-                    }
+        guard let uiImage = UIImage(data: imageData) else {
+            return nil
+        }
+
+        return await withCheckedContinuation { continuation in
+            self.imageClassificationService.classifyImage(uiImage) { result in
+                switch result {
+                case .success(let identifier):
+                    let category = self.mapIdentifierToCategory(identifier)
+                    continuation.resume(returning: (Photo(asset: asset), category))
+                case .failure(let error):
+                    print("Image classification failed: \(error.localizedDescription)")
+                    continuation.resume(returning: nil)
                 }
             }
         }
