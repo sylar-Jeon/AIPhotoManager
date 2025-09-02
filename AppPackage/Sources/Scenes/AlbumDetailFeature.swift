@@ -8,7 +8,7 @@ import APFoundation
 public struct AlbumDetailFeature : Sendable {
     @ObservableState
     public struct State: Equatable {
-        public var album: Album
+        public var album: AlbumModel
         public var photos: IdentifiedArrayOf<Photo> = []
         public var isLoadingPhotos = false
         public var selection: Set<Photo.ID> = []
@@ -17,9 +17,9 @@ public struct AlbumDetailFeature : Sendable {
         @Presents var destination: AlbumSelectionFeature.State?
         @Presents var photoViewer: PhotoViewerFeature.State?
         
-        public init(album: Album, photos: IdentifiedArrayOf<Photo> = [], isLoadingPhotos: Bool = false, selection: Set<Photo.ID> = [], isEditing: Bool = false, isRenameAlertPresented: Bool = false, destination: AlbumSelectionFeature.State? = nil, photoViewer: PhotoViewerFeature.State? = nil) {
+        public init(album: AlbumModel, photos: IdentifiedArrayOf<Photo> = [], isLoadingPhotos: Bool = false, selection: Set<Photo.ID> = [], isEditing: Bool = false, isRenameAlertPresented: Bool = false, destination: AlbumSelectionFeature.State? = nil, photoViewer: PhotoViewerFeature.State? = nil) {
             self.album = album
-            self.photos = IdentifiedArray(uniqueElements: album.photos)
+            self.photos = photos
             self.isLoadingPhotos = isLoadingPhotos
             self.selection = selection
             self.isEditing = isEditing
@@ -36,35 +36,58 @@ public struct AlbumDetailFeature : Sendable {
         case setEditMode(isEditing: Bool)
         case photoTapped(Photo)
         case moveButtonTapped
-        case movePhotos(toAlbum: Album)
+        case setDestination(AlbumSelectionFeature.State?)
+        case movePhotos(toAlbum: PHAssetCollection)
         case destination(PresentationAction<AlbumSelectionFeature.Action>)
         case photoViewer(PresentationAction<PhotoViewerFeature.Action>)
         case delegate(Delegate)
         case setIsRenameAlertPresented(Bool)
+        case photosResponse([PHAsset])
 
         public enum Delegate {
-            case albumUpdated(Album)
-            case movePhotos(from: Album, to: Album, photos: [Photo])
+            case albumUpdated(AlbumModel)
         }
     }
 
     @Dependency(\.photoClient) var photoClient
+    @Dependency(\.photoLibraryClient) var photoLibraryClient
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                state.photos = IdentifiedArray(uniqueElements: state.album.photos)
-                return .none
+                state.isLoadingPhotos = true
+                return .run { [albumId = state.album.id] send in
+                    let fetchResult = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [albumId], options: nil)
+                    guard let album = fetchResult.firstObject else { return }
+                    let assets = PHAsset.fetchAssets(in: album, options: nil)
+                    var photos: [PHAsset] = []
+                    assets.enumerateObjects { asset, _, _ in
+                        photos.append(asset)
+                    }
+                    await send(.photosResponse(photos))
+                }
                 
+            case let .photosResponse(photos):
+                state.isLoadingPhotos = false
+                state.photos = IdentifiedArray(uniqueElements: photos.map(Photo.init))
+                return .none
+
             case .renameButtonTapped:
                 state.isRenameAlertPresented = true
                 return .none
                 
             case let .renameAlbum(newName):
-                state.album.title = newName
                 state.isRenameAlertPresented = false
-                return .send(.delegate(.albumUpdated(state.album)))
+                let albumId = state.album.id
+                return .run { [albumId, newName] send in
+                    let fetchResult = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [albumId], options: nil)
+                    guard let album = fetchResult.firstObject else { return }
+                    try await PHPhotoLibrary.shared().performChanges {
+                        guard let changeRequest = PHAssetCollectionChangeRequest(for: album) else { return }
+                        changeRequest.title = newName
+                    }
+                }
                 
             case let .setEditMode(isEditing):
                 state.isEditing = isEditing
@@ -84,17 +107,28 @@ public struct AlbumDetailFeature : Sendable {
                 return .none
                 
             case .moveButtonTapped:
-                // In a real app, you would fetch all albums here.
-                // For now, we assume the parent feature will handle this.
-                state.destination = AlbumSelectionFeature.State(albums: [])
+                return .run { send in
+                    let albums = try await self.photoLibraryClient.fetchAlbums()
+                    await send(.setDestination(AlbumSelectionFeature.State(albums: IdentifiedArray(uniqueElements: albums.map(AlbumModel.init)))))
+                }
+
+            case let .setDestination(destination):
+                state.destination = destination
                 return .none
                 
             case let .movePhotos(toAlbum):
                 let photosToMove = state.photos.filter { state.selection.contains($0.id) }
-                return .send(.delegate(.movePhotos(from: state.album, to: toAlbum, photos: Array(photosToMove))))
+                let assetsToMove = photosToMove.compactMap { $0.asset }
+                return .run { [album = state.album.assetCollection] send in
+                    try await self.photoLibraryClient.addPhotos(assetsToMove, toAlbum)
+                    try await PHPhotoLibrary.shared().performChanges {
+                        guard let changeRequest = PHAssetCollectionChangeRequest(for: album) else { return }
+                        changeRequest.removeAssets(assetsToMove as NSFastEnumeration)
+                    }
+                }
                 
             case .destination(.presented(.albumTapped(let album))):
-                return .send(.movePhotos(toAlbum: album))
+                return .send(.movePhotos(toAlbum: album.assetCollection))
                 
             case .destination:
                 return .none

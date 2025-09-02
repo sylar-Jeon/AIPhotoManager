@@ -2,6 +2,7 @@
 import ComposableArchitecture
 import SwiftUI
 import APFoundation
+import Photos
 
 public struct AlbumSelectionView: View {
     @Bindable var store: StoreOf<AlbumSelectionFeature>
@@ -10,7 +11,7 @@ public struct AlbumSelectionView: View {
         NavigationView {
             List {
                 ForEach(store.albums) { album in
-                    Button(album.title) {
+                    Button(album.title ?? "Untitled Album") {
                         store.send(.albumTapped(album))
                     }
                 }
@@ -34,11 +35,7 @@ public struct AlbumSelectionView: View {
 
 #Preview {
     AlbumSelectionView(
-        store: Store(initialState: AlbumSelectionFeature.State(albums: [
-            Album(title: "Album 1"),
-            Album(title: "Album 2"),
-            Album(title: "Album 3")
-        ])) {
+        store: Store(initialState: AlbumSelectionFeature.State(albums: [])) {
             AlbumSelectionFeature()
         }
     )

@@ -115,14 +115,7 @@ public struct AlbumListFeature : Sendable {
             case .path(.element(id: _, action: .delegate(let delegateAction))):
                 switch delegateAction {
                 case let .albumUpdated(album):
-                    // state.albums[id: album.id] = album
-                    return .none
-                case let .movePhotos(from, to, photos):
-                    // guard var sourceAlbum = state.albums[id: from.id], var destinationAlbum = state.albums[id: to.id] else { return .none }
-                    // sourceAlbum.photos.removeAll { photos.contains($0) }
-                    // destinationAlbum.photos.append(contentsOf: photos)
-                    // state.albums[id: sourceAlbum.id] = sourceAlbum
-                    // state.albums[id: destinationAlbum.id] = destinationAlbum
+                    state.albums[id: album.id] = album
                     return .none
                 }
 
@@ -142,7 +135,7 @@ public struct AlbumListFeature : Sendable {
                         state.selection.insert(album.id)
                     }
                 } else {
-                    // state.path.append(AlbumDetailFeature.State(album: album))
+                    state.path.append(AlbumDetailFeature.State(album: album))
                 }
                 return .none
 
@@ -180,7 +173,7 @@ public struct AlbumListFeature : Sendable {
                 }
             }
         }
-        .forEach(\.path, action: \.path) {
+        .forEach(\State.path, action: /Action.path) {
             AlbumDetailFeature()
         }
     }

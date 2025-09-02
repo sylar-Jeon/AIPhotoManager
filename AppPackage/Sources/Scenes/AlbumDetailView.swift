@@ -12,7 +12,7 @@ public struct AlbumDetailView: View {
 
     public var body: some View {
         VStack {
-            Text(store.album.title)
+            Text(store.album.title ?? "Untitled Album")
                 .font(.largeTitle)
                 .padding()
             
@@ -24,7 +24,7 @@ public struct AlbumDetailView: View {
                 photoGrid
             }
         }
-        .navigationTitle(store.album.title)
+        .navigationTitle(store.album.title ?? "Untitled Album")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { detailToolbar }
         .onAppear {
@@ -131,7 +131,7 @@ struct PhotoThumbnailView: View {
 
 #Preview {
     AlbumDetailView(
-        store: Store(initialState: AlbumDetailFeature.State(album: Album(title: "Sample Album", tags: ["Nature"]))) {
+        store: Store(initialState: AlbumDetailFeature.State(album: AlbumModel(assetCollection: PHAssetCollection()))) {
             AlbumDetailFeature()
         }
     )

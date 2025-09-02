@@ -7,15 +7,15 @@ import APFoundation
 public struct AlbumSelectionFeature {
     @ObservableState
     public struct State: Equatable {
-        public var albums: IdentifiedArrayOf<Album>
+        public var albums: IdentifiedArrayOf<AlbumModel>
         
-        public init(albums: IdentifiedArrayOf<Album>) {
+        public init(albums: IdentifiedArrayOf<AlbumModel>) {
             self.albums = albums
         }
     }
 
     public enum Action {
-        case albumTapped(Album)
+        case albumTapped(AlbumModel)
         case cancelButtonTapped
     }
 
