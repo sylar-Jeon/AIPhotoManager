@@ -12,7 +12,7 @@ public struct AlbumListView: View {
                 } else {
                     List {
                         ForEach(store.albums) { album in
-                            NavigationLink(state: AlbumDetailFeature.State(album: album)) {
+                            // NavigationLink(state: AlbumDetailFeature.State(album: album)) {
                                 AlbumRowView(
                                     album: album,
                                     isEditing: store.isEditingAlbums,
@@ -21,7 +21,7 @@ public struct AlbumListView: View {
                                         store.send(.albumTapped(album))
                                     }
                                 )
-                            }
+                            // }
                         }
                     }
                     .animation(.default, value: store.albums)

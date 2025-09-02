@@ -5,18 +5,31 @@ import APFoundation
 import Photos
 import IdentifiedCollections
 
+public struct AlbumModel: Equatable, Identifiable {
+    public let id: String
+    public let assetCollection: PHAssetCollection
+    public var title: String? {
+        assetCollection.localizedTitle
+    }
+
+    public init(assetCollection: PHAssetCollection) {
+        self.id = assetCollection.localIdentifier
+        self.assetCollection = assetCollection
+    }
+}
+
 @Reducer
 public struct AlbumListFeature : Sendable {
     @ObservableState
     public struct State: Equatable {
-        public var albums: IdentifiedArrayOf<Album> = []
+        public var albums: IdentifiedArrayOf<AlbumModel> = []
         public var path = StackState<AlbumDetailFeature.State>()
         public var isLoading = false
         public var fetchedPhotosCount: Int = 0
-        public var selection: Set<Album.ID> = []
+        public var selection: Set<AlbumModel.ID> = []
         public var isEditingAlbums = false
         
-        public init(albums: IdentifiedArrayOf<Album> = [], isLoading: Bool = false, fetchedPhotosCount: Int = 0, selection: Set<Album.ID> = [], isEditingAlbums: Bool = false) {
+        public init(albums: IdentifiedArrayOf<AlbumModel> = [], isLoading: Bool = false, fetchedPhotosCount: Int = 0, selection: Set<AlbumModel.ID> = [], isEditingAlbums: Bool = false) {
             self.albums = albums
             self.isLoading = isLoading
             self.fetchedPhotosCount = fetchedPhotosCount
@@ -27,20 +40,20 @@ public struct AlbumListFeature : Sendable {
 
     public enum Action {
         case onAppear
-        case albumsResponse([Album])
+        case albumsResponse([PHAssetCollection])
         case scanButtonTapped
         case authorizationResponse(PHAuthorizationStatus)
         case photosResponse([PHAsset])
-        case classifiedAlbumsResponse([Album])
         case path(StackAction<AlbumDetailFeature.State, AlbumDetailFeature.Action>)
         case setEditMode(isEditing: Bool)
-        case albumTapped(Album)
+        case albumTapped(AlbumModel)
         case mergeButtonTapped
         case deleteButtonTapped
     }
 
     @Dependency(\.photoClient) var photoClient
     @Dependency(\.aiPhotoClassifierClient) var aiPhotoClassifierClient
+    @Dependency(\.photoLibraryClient) var photoLibraryClient
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
@@ -49,19 +62,13 @@ public struct AlbumListFeature : Sendable {
                 guard !state.isLoading else { return .none }
                 state.isLoading = true
                 return .run { send in
-                    // Simulate a network/database call
-                    try await Task.sleep(for: .seconds(1.5))
-                    let mockAlbums = [
-                        Album(title: "Summer Vacation 2024", photos: []),
-                        Album(title: "Family Photos", photos: []),
-                        Album(title: "Cute Pets", photos: [])
-                    ]
-                    await send(.albumsResponse(mockAlbums))
+                    let albums = try await self.photoLibraryClient.fetchAlbums()
+                    await send(.albumsResponse(albums))
                 }
 
             case let .albumsResponse(albums):
                 state.isLoading = false
-                state.albums = IdentifiedArray(uniqueElements: albums)
+                state.albums = IdentifiedArray(uniqueElements: albums.map(AlbumModel.init))
                 return .none
                 
             case .scanButtonTapped:
@@ -97,26 +104,25 @@ public struct AlbumListFeature : Sendable {
                 print("Fetched \(photos.count) photos.")
                 return .run { send in
                     let classifiedAlbums = await self.aiPhotoClassifierClient.classifyPhotos(photos)
-                    await send(.classifiedAlbumsResponse(classifiedAlbums))
+                    for album in classifiedAlbums {
+                        let newAlbum = try await self.photoLibraryClient.createAlbum(album.title)
+                        try await self.photoLibraryClient.addPhotos(album.photos.compactMap { $0.asset }, newAlbum)
+                    }
+                    let albums = try await self.photoLibraryClient.fetchAlbums()
+                    await send(.albumsResponse(albums))
                 }
-
-            case let .classifiedAlbumsResponse(albums):
-                state.isLoading = false
-                state.albums = IdentifiedArray(uniqueElements: albums)
-                print("Classified into \(albums.count) albums.")
-                return .none
 
             case .path(.element(id: _, action: .delegate(let delegateAction))):
                 switch delegateAction {
                 case let .albumUpdated(album):
-                    state.albums[id: album.id] = album
+                    // state.albums[id: album.id] = album
                     return .none
                 case let .movePhotos(from, to, photos):
-                    guard var sourceAlbum = state.albums[id: from.id], var destinationAlbum = state.albums[id: to.id] else { return .none }
-                    sourceAlbum.photos.removeAll { photos.contains($0) }
-                    destinationAlbum.photos.append(contentsOf: photos)
-                    state.albums[id: sourceAlbum.id] = sourceAlbum
-                    state.albums[id: destinationAlbum.id] = destinationAlbum
+                    // guard var sourceAlbum = state.albums[id: from.id], var destinationAlbum = state.albums[id: to.id] else { return .none }
+                    // sourceAlbum.photos.removeAll { photos.contains($0) }
+                    // destinationAlbum.photos.append(contentsOf: photos)
+                    // state.albums[id: sourceAlbum.id] = sourceAlbum
+                    // state.albums[id: destinationAlbum.id] = destinationAlbum
                     return .none
                 }
 
@@ -136,7 +142,7 @@ public struct AlbumListFeature : Sendable {
                         state.selection.insert(album.id)
                     }
                 } else {
-                    state.path.append(AlbumDetailFeature.State(album: album))
+                    // state.path.append(AlbumDetailFeature.State(album: album))
                 }
                 return .none
 
@@ -144,24 +150,34 @@ public struct AlbumListFeature : Sendable {
                 guard state.selection.count > 1 else { return .none }
                 let selection = state.selection
                 let selectedAlbums = state.albums.filter { selection.contains($0.id) }
-                let newTitle = selectedAlbums.map { $0.title }.joined(separator: " + ")
-                let newTags = Array(Set(selectedAlbums.flatMap { $0.tags }))
-                let mergedPhotos = selectedAlbums.flatMap { $0.photos }
-                let mergedAlbum = Album(title: newTitle, tags: newTags, photos: mergedPhotos)
-
-                state.albums.removeAll(where: { selection.contains($0.id) })
-                state.albums.append(mergedAlbum)
-                state.selection = []
-                state.isEditingAlbums = false
-                return .none
+                let newTitle = selectedAlbums.compactMap { $0.title }.joined(separator: " + ")
+                let albumIdentifiers = selectedAlbums.map { $0.id }
+                
+                return .run { [albumIdentifiers] send in
+                    let fetchResult = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: albumIdentifiers, options: nil)
+                    var albumsToMerge: [PHAssetCollection] = []
+                    fetchResult.enumerateObjects { collection, _, _ in
+                        albumsToMerge.append(collection)
+                    }
+                    _ = try await self.photoLibraryClient.mergeAlbums(albumsToMerge, newTitle)
+                    let albums = try await self.photoLibraryClient.fetchAlbums()
+                    await send(.albumsResponse(albums))
+                }
                 
             case .deleteButtonTapped:
-                for id in state.selection {
-                    state.albums.remove(id: id)
+                let selection = state.selection
+                let selectedAlbums = state.albums.filter { selection.contains($0.id) }
+                let albumIdentifiers = selectedAlbums.map { $0.id }
+                return .run { [albumIdentifiers] send in
+                    let fetchResult = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: albumIdentifiers, options: nil)
+                    var albumsToDelete: [PHAssetCollection] = []
+                    fetchResult.enumerateObjects { collection, _, _ in
+                        albumsToDelete.append(collection)
+                    }
+                    try await self.photoLibraryClient.deleteAlbums(albumsToDelete)
+                    let albums = try await self.photoLibraryClient.fetchAlbums()
+                    await send(.albumsResponse(albums))
                 }
-                state.selection = []
-                state.isEditingAlbums = false
-                return .none
             }
         }
         .forEach(\.path, action: \.path) {

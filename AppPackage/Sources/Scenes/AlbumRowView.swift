@@ -2,19 +2,17 @@
 import SwiftUI
 import ComposableArchitecture
 import APFoundation
+import Photos
 
 struct AlbumRowView: View {
-    let album: Album
+    let album: AlbumModel
     let isEditing: Bool
     let isSelected: Bool
     let onTapped: () -> Void
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text(album.title)
-            Text("Tags: \(album.tags.joined(separator: ", "))")
-                .font(AppFont.caption)
-                .foregroundColor(AppColor.textSecondary)
+            Text(album.title ?? "Untitled Album")
         }
         .simultaneousGesture(TapGesture().onEnded {
             onTapped()
@@ -31,7 +29,7 @@ struct AlbumRowView: View {
 
 #Preview {
     AlbumRowView(
-        album: Album(title: "Sample Album", tags: ["Nature", "Travel"]),
+        album: AlbumModel(assetCollection: PHAssetCollection()),
         isEditing: true,
         isSelected: true,
         onTapped: {}
