@@ -8,7 +8,7 @@ public struct AlbumDetailView: View {
     @Bindable var store: StoreOf<AlbumDetailFeature>
 
     private let imageManager = PHCachingImageManager()
-    private let thumbnailSize = CGSize(width: 150, height: 150)
+    private let thumbnailSize = CGSize(width: 100, height: 100)
 
     public var body: some View {
         VStack {
@@ -51,7 +51,7 @@ public struct AlbumDetailView: View {
 
     private var photoGrid: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))]) {
                 ForEach(store.photos) { photo in
                     PhotoThumbnailView(asset: photo.asset, imageManager: imageManager, thumbnailSize: thumbnailSize)
                         .onTapGesture {

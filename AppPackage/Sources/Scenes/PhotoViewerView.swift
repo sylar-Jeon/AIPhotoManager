@@ -18,13 +18,13 @@ private let imageManager = PHCachingImageManager()
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .ignoresSafeArea()
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .topLeading) {
             Button {
                 store.send(.dismiss)
             } label: {
-                Image(systemName: "xmark.circle.fill")
+                Image(systemName: "chevron.backward")
                     .font(.largeTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppColor.textPrimary)
                     .padding()
             }
         }
